@@ -2,6 +2,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const validatePassword = (password) => {
+  return password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password);
+};
+
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 exports.login = async (req, res) => {
   try {
@@ -13,7 +17,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '1d' }
     );
     res.json({
       token,

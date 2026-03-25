@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const Student    = require('../models/Student');
+const { sendToMany } = require('./notificationController');
 
 // Mark bulk attendance for a class
 exports.markAttendance = async (req, res) => {
@@ -15,7 +16,30 @@ exports.markAttendance = async (req, res) => {
     }));
 
     await Attendance.insertMany(docs);
-    res.status(201).json({ message: 'Attendance marked successfully ✅' });
+    
+    // Send notifications to all marked students
+    const studentIds = records.map(r => r.studentId);
+    const students = await Student.find({ _id: { $in: studentIds } })
+      .populate('userId', 'name');
+    
+    const userIds = students
+      .filter(s => s.userId)
+      .map(s => s.userId._id);
+    
+    if (userIds.length > 0) {
+      await sendToMany(
+        userIds,
+        '📋 Attendance Marked',
+        `Your attendance for today has been marked.`,
+        { type: 'attendance', subjectId }
+      );
+      console.log(`✅ Notifications sent to ${userIds.length} students`);
+    }
+    
+    res.status(201).json({ 
+      message: 'Attendance marked successfully ✅',
+      notificationsSent: userIds.length
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -160,6 +184,17 @@ exports.markAttendanceByQR = async (req, res) => {
       date: new Date(date),
       status: 'present',
     });
+
+    // Send notification to this student
+    const user = await Student.findById(student._id).populate('userId');
+    if (user?.userId) {
+      await sendToMany(
+        [user.userId._id],
+        '✅ Attendance Marked',
+        `Attendance marked present for today`,
+        { type: 'attendance_qr', subjectId }
+      );
+    }
 
     res.status(201).json({ message: `✅ Attendance marked for ${student.name}` });
   } catch (err) {

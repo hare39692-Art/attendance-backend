@@ -5,6 +5,18 @@ const User  = require('../models/User');
 let initialized = false;
 exports.initFirebase = () => {
   if (initialized) return;
+  
+  // Check if all required env vars are present
+  const required = ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.log('⚠️  Firebase credentials incomplete. Notifications will be skipped.');
+    console.log('Missing:', missing.join(', '));
+    console.log('Add to .env: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY');
+    return;
+  }
+  
   try {
     admin.initializeApp({
       credential: admin.credential.cert({
@@ -14,9 +26,10 @@ exports.initFirebase = () => {
       }),
     });
     initialized = true;
-    console.log('Firebase Admin initialized ✅');
+    console.log('✅ Firebase Admin initialized successfully');
   } catch (e) {
-    console.log('Firebase Admin init failed ❌:', e.message);
+    console.log('❌ Firebase Admin init failed:', e.message);
+    console.log('Tip: Download service account key from Firebase Console');
   }
 };
 
@@ -34,8 +47,19 @@ exports.saveFcmToken = async (req, res) => {
 // Send to single user
 exports.sendToUser = async (userId, title, body, data = {}) => {
   try {
+    if (!initialized) {
+      console.log('⚠️  Firebase not initialized. Skipping notification.');
+      return;
+    }
+    
     const user = await User.findById(userId);
-    if (!user?.fcmToken) return;
+    if (!user?.fcmToken) {
+      console.log(`⚠️  User ${userId} has no FCM token`);
+      return;
+    }
+    
+    console.log(`📱 Sending notification to ${user.name}: "${title}"`);
+    
     await admin.messaging().send({
       token: user.fcmToken,
       notification: { title, body },
@@ -45,8 +69,9 @@ exports.sendToUser = async (userId, title, body, data = {}) => {
         notification: { sound: 'default', channelId: 'attendance_channel' },
       },
     });
+    console.log('✅ Notification sent successfully');
   } catch (e) {
-    console.log('Notification failed:', e.message);
+    console.log('❌ Notification failed:', e.message);
   }
 };
 

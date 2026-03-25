@@ -20,7 +20,10 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/analytics',  require('./routes/analyticsRoutes'));
 app.use('/api/subjects',   require('./routes/subjectRoutes'));
 app.use('/api/students',   require('./routes/studentRoutes'));
-app.use('/api/timetable',  require('./routes/timetableRoutes')); // ← NEW
+app.use('/api/timetable',  require('./routes/timetableRoutes'));
+app.use('/api/notification', require('./routes/notificationRoutes'));
+
+app.use(require('./middleware/errorHandler'));
 
 app.get('/', (req, res) => res.send('Attendance Analyzer API 🚀'));
 
